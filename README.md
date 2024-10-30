@@ -1,155 +1,174 @@
 # Retail Store Sample Application
 
 ## Overview
-This is a sample retail store application demonstrating a microservices architecture using various technologies. The application consists of multiple services that work together to provide a complete e-commerce experience.
+This is a sample retail store application deployed using Jenkins pipeline to a Digital Ocean droplet. The application demonstrates a microservices architecture using various AWS container images.
 
 ## Project Structure
 ```
 .
-├── image/               
+├── image/                  
 ├── terraform/             
 │   ├── .terraform/        
 │   ├── main.tf           
-│   ├── output.tf       
-│   ├── provider.tf      
-│   ├── terraform.tfvars 
+│   ├── output.tf         
+│   ├── provider.tf       
 │   └── variabel.tf      
-├── nginx-proxy/         # Nginx reverse proxy configuration
-├── .gitignore           # Git ignore rules
-├── Jenkinsfile          # Jenkins pipeline configuration
-└── README.md            # Project documentation
+├── .gitignore          
+├── Jenkinsfile          
+└── README.md            
 ```
 
-## Architecture
+## Microservices Architecture
 
-The application consists of the following microservices:
+The application uses the following AWS container images:
+- `retail-store-sample-ui:latest`
+- `retail-store-sample-catalog:latest`
+- `retail-store-sample-cart:latest`
+- `retail-store-sample-orders:latest`
+- `retail-store-sample-checkout:latest`
+- `retail-store-sample-assets:latest`
 
-- **UI Service** - Frontend interface (Java/Spring Boot)
-- **Catalog Service** - Product catalog management (Go)
-- **Cart Service** - Shopping cart functionality (Java/Spring Boot)
-- **Orders Service** - Order processing (Java/Spring Boot)
-- **Checkout Service** - Payment processing (Node.js)
-- **Assets Service** - Static asset management
+All images are pulled from the public ECR repository: `public.ecr.aws/aws-containers/`
 
 ## Prerequisites
 
-- Docker and Docker Compose
-- Terraform >= 1.0.0
-- Jenkins
-- Git
-- Digital Ocean account
-- Nginx
+- Jenkins server with following plugins:
+  - SSH Agent Plugin
+  - Pipeline Plugin
+- Docker and Docker Compose on the target Digital Ocean droplet
+- SSH access to Digital Ocean droplet
+- Git access to the repository
 
-## Infrastructure Setup
+## Jenkins Pipeline Configuration
 
-### Initial Configuration
+### Pipeline Stages
 
-1. Clone the repository:
-```bash
-git clone https://github.com/aws-containers/retail-store-sample-app.git
-cd retail-store-sample-app
-```
+1. **Preparation**
+   - Cleans up existing workspace
+   - Removes any previous clone of the repository
+   ```groovy
+   stage('Preparation') {
+       steps {
+           script {
+               if (fileExists('retail-store-sample-app')) {
+                   sh 'rm -rf retail-store-sample-app'
+               }
+           }
+       }
+   }
+   ```
 
-2. Update Terraform variables:
-- Navigate to the `terraform` directory
-- Modify `terraform.tfvars` with your specific values
-- Update `provider.tf` with your Digital Ocean credentials
+2. **Clone Repository**
+   - Clones the retail store sample application
+   - Source: `https://github.com/aws-containers/retail-store-sample-app.git`
+   ```groovy
+   stage('Clone Repository') {
+       steps {
+           script {
+               sh 'git clone https://github.com/aws-containers/retail-store-sample-app.git'
+           }
+       }
+   }
+   ```
 
-3. Initialize and apply Terraform:
-```bash
-cd terraform
-terraform init
-terraform plan
-terraform apply
-```
+3. **Update Docker Compose**
+   - Updates image tags in docker-compose.yml
+   - Sets all services to use latest tags from public ECR
+   - Location: `retail-store-sample-app/deploy/docker-compose/docker-compose.yml`
 
-## CI/CD Pipeline
+4. **Deploy to Digital Ocean**
+   - Copies application to Digital Ocean droplet
+   - Deploys using Docker Compose
+   - Target path: `/root/retail-app`
+   - Runs with MySQL password configuration
 
-The CI/CD pipeline is implemented using Jenkins. The configuration is stored in the `Jenkinsfile` at the root of the repository.
+### Required Jenkins Credentials
 
-### Pipeline Stages:
-1. **Preparation** - Clean workspace and prepare environment
-2. **Clone Repository** - Clone the application source code
-3. **Create Nginx Configuration** - Set up reverse proxy configuration
-4. **Update Docker Compose** - Update image tags and configurations
-5. **Deploy to Digital Ocean** - Deploy the application to Digital Ocean droplet
+1. SSH Agent Configuration:
+   - Credential ID: `digital-ocean-ssh`
+   - Type: SSH Username with private key
+   - Scope: Global
+   - Description: Digital Ocean droplet SSH access
 
-### Pipeline Setup:
-1. Configure Jenkins with required credentials:
-   - SSH credentials for Digital Ocean droplet access
-   - Git repository access credentials
+### Environment Variables
 
-2. Create a new Jenkins Pipeline job:
-   - Point to your repository
-   - Configure the pipeline to use the Jenkinsfile
+- `DROPLET_IP`: '178.128.81.172'
+- `MYSQL_PASSWORD`: 'password'
 
-## Infrastructure Management
+## Deployment Configuration
 
-### Creating New Resources
-To add new infrastructure components:
-1. Modify the Terraform files in the `terraform` directory
-2. Apply changes:
-```bash
-cd terraform
-terraform plan
-terraform apply
-```
+### Digital Ocean Setup
+1. Droplet must have Docker and Docker Compose installed
+2. SSH access must be configured for root user
+3. Required ports must be open:
+   - 22 (SSH)
+   - 80 (HTTP)
+   - 8888 (Application)
 
-### Destroying Infrastructure
-To tear down the infrastructure:
-```bash
-cd terraform
-terraform destroy
-```
+### Docker Compose Configuration
+The application is deployed using Docker Compose with the following services:
+- UI Service
+- Catalog Service
+- Cart Service
+- Orders Service
+- Checkout Service
+- Assets Service
 
-## Nginx Proxy Configuration
+## Pipeline Execution
 
-The application uses Nginx as a reverse proxy with the following features:
-- HTTP/HTTPS support
-- Gzip compression
-- WebSocket support
-- Custom logging
-- Load balancing (if configured)
+### Running the Pipeline
+1. Configure a new Pipeline job in Jenkins
+2. Set the pipeline definition to "Pipeline script from SCM"
+3. Configure Git repository URL
+4. Set the script path to "Jenkinsfile"
+5. Save and run the pipeline
 
-## Security Considerations
+### Post-Deployment Steps
+The pipeline includes post-execution cleanup:
+- Removes any .env files
+- Cleans up workspace
+- Logs execution status
 
-- Store sensitive information in Jenkins credentials
-- Regularly update dependencies and Docker images
-- Implement proper access controls for your infrastructure
-- Use secure HTTPS connections
-- Regularly audit access logs
-
-## Access the Application
-The application can be accessed at: http://sample-app.com
-(Replace with your actual domain or IP address)
-
-## Monitoring and Logging
-
-- Application logs are available in the Docker container logs
-- Nginx access and error logs are stored in `/var/log/nginx/`
-- Infrastructure monitoring can be implemented using your preferred monitoring solution
+### Error Handling
+The pipeline includes:
+- Automatic cleanup in case of failure
+- Error logging
+- Status reporting
 
 ## Troubleshooting
 
-Common issues and solutions:
-1. Nginx proxy connection issues:
-   - Check Nginx configuration
-   - Verify port mappings
-   - Check service health status
+Common Issues and Solutions:
 
-2. Pipeline deployment failures:
-   - Verify Jenkins credentials
-   - Check Digital Ocean droplet connectivity
-   - Review Jenkins pipeline logs
+1. **SSH Connection Failures**
+   ```bash
+   # Verify SSH access
+   ssh -i <path-to-key> root@178.128.81.172
+   ```
 
-## Contributing
+2. **Docker Compose Errors**
+   ```bash
+   # Check Docker service status
+   systemctl status docker
+   
+   # View container logs
+   docker compose logs
+   ```
 
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+3. **Pipeline Failures**
+   - Check Jenkins console output
+   - Verify credentials in Jenkins
+   - Ensure Digital Ocean droplet is accessible
 
-## License
+## Monitoring
 
-[Include your license information here]
+1. **Application Logs**
+   ```bash
+   # View container logs
+   docker compose logs -f
+   ```
+
+2. **Pipeline Logs**
+   - Available in Jenkins job console output
+   - Build history in Jenkins
+
+
