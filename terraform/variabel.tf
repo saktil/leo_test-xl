@@ -31,3 +31,33 @@ variable "size" {
   type        = string
   default     = "s-2vcpu-4gb"
 }
+
+variable "project_name" {
+  description = "Name of the project"
+  type        = string
+  default     = "retail-app"
+}
+
+variable "environment" {
+  description = "Environment (dev/staging/prod)"
+  type        = string
+  default     = "dev"
+}
+
+variable "vpc_cidr" {
+  description = "CIDR range for VPC"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "use_existing_vpc" {
+  description = "Whether to use an existing VPC"
+  type        = bool
+  default     = false
+}
+
+variable "existing_vpc_name" {
+  description = "Name of existing VPC to use if use_existing_vpc is true"
+  type        = string
+  default     = ""
+}

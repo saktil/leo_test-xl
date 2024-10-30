@@ -1,8 +1,21 @@
-resource "digitalocean_vpc" "retail_app" {
-  name     = "example-project-network"
-  region   = "nyc3"
-  ip_range = "10.10.10.0/24"
+resource "digitalocean_vpc" "retail_app_droplet" {
+  name     = "${var.project_name}-${var.environment}-vpc-${random_string.suffix.result}"
+  region   = var.region
+  ip_range = var.vpc_cidr
 }
+
+resource "random_string" "suffix" {
+  length  = 4
+  special = false
+  upper   = false
+}
+
+data "digitalocean_vpc" "existing" {
+  count = var.use_existing_vpc ? 1 : 0
+  name  = var.existing_vpc_name
+}
+
+
 resource "digitalocean_droplet" "retail_app_droplet" {
   name     = var.droplet_name
   region   = var.region
